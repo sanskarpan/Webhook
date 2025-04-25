@@ -1,5 +1,5 @@
 # Webhook Delivery Service
-(checklist.md)[checklist.md]
+[[checklist.md]]
 
 A robust webhook delivery system that ingests, queues, delivers, and tracks webhook deliveries with automatic retries and comprehensive logging.
 
