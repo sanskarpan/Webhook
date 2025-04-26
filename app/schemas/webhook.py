@@ -4,7 +4,7 @@ Pydantic schemas for webhook-related requests and responses.
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 
 class WebhookIngestionResponse(BaseModel):
@@ -21,15 +21,15 @@ class WebhookIngestionResponse(BaseModel):
     )
 
 
-class WebhookPayload(BaseModel):
+class WebhookPayload(RootModel[Dict[str, Any]]):
     """
     Generic representation of a webhook payload.
     
     Since we accept arbitrary JSON, we use a Dict[str, Any] type.
     """
-    __root__: Dict[str, Any] = Field(
-        description="The JSON payload for the webhook"
-    )
+    model_config = {
+        "json_schema_extra": {"description": "The JSON payload for the webhook"}
+    }
 
 
 class WebhookRequest(BaseModel):

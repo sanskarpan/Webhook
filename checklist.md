@@ -14,8 +14,8 @@
 - [X] Implement Subscription schemas
 - [X] Create Subscription repository
 - [X] Implement Subscription service
-- [ ] Implement CRUD API endpoints for subscriptions
-- [ ] Add validation for subscription data
+- [X] Implement CRUD API endpoints for subscriptions
+- [X] Add validation for subscription data
 - [ ] Add basic tests for subscription endpoints
 
 ## Phase 2: Ingestion + Verification + Event Filtering
@@ -24,11 +24,11 @@
 - [X] Add event type filtering logic
 - [X] Set up task queuing in Redis
 - [X] Implement validation for webhook payloads
-- [ ] Add tests for signature verification
+- [X] Add tests for signature verification
 - [ ] Add tests for event filtering
 
 ## Phase 3: Async Delivery + Retry
-- [ ] Implement Celery task for webhook delivery
+- [X] Implement Celery task for webhook delivery
 - [X] Configure retry mechanism with exponential backoff
 - [X] Set up max retry attempts logic
 - [x] Add error handling for various failure scenarios
@@ -37,29 +37,29 @@
 ## Phase 4: Delivery Logging + Status APIs
 - [X] Create DeliveryLog model
 - [X] Implement DeliveryLog repository
-- [ ] Add logging for all delivery attempts
+- [X] Add logging for all delivery attempts
 - [X] Implement status API endpoints
 - [X] Add subscription attempt history endpoint
 - [ ] Add tests for status endpoints
 
 ## Phase 5: Log Retention Job
-- [ ] Create scheduled cleanup task
-- [ ] Configure Celery Beat for periodic execution
-- [ ] Implement log retention policy (72 hours)
+- [X] Create scheduled cleanup task
+- [X] Configure Celery Beat for periodic execution
+- [X] Implement log retention policy (72 hours)
 - [ ] Add tests for log cleanup
 
 ## Phase 6: Minimal UI
-- [ ] Configure Swagger/OpenAPI with clean styling
+- [X] Configure Swagger/OpenAPI with clean styling
 - [ ] Create custom UI components if needed beyond Swagger
 - [ ] Test UI functionality for managing subscriptions
 - [ ] Test UI functionality for viewing delivery logs
 
 ## Phase 7: Final Polish + Deployment
-- [ ] Review and optimize database queries and indexes
-- [ ] Ensure proper error handling throughout the application
+- [X] Review and optimize database queries and indexes
+- [X] Ensure proper error handling throughout the application
 - [ ] Add comprehensive logging
 - [ ] Configure for deployment to a free-tier provider
 - [ ] Create detailed deployment instructions
-- [ ] Add cost estimation calculations
+- [x] Add cost estimation calculations
 - [ ] Complete README documentation
 - [ ] Final tests and QA
