@@ -10,36 +10,36 @@
 - [X] Configure Celery worker
 
 ## Phase 1: Subscription API
-- [ ] Create Subscription model
-- [ ] Implement Subscription schemas
-- [ ] Create Subscription repository
-- [ ] Implement Subscription service
+- [X] Create Subscription model
+- [X] Implement Subscription schemas
+- [X] Create Subscription repository
+- [X] Implement Subscription service
 - [ ] Implement CRUD API endpoints for subscriptions
 - [ ] Add validation for subscription data
 - [ ] Add basic tests for subscription endpoints
 
 ## Phase 2: Ingestion + Verification + Event Filtering
-- [ ] Create webhook ingestion endpoint
-- [ ] Implement signature verification utility
-- [ ] Add event type filtering logic
-- [ ] Set up task queuing in Redis
-- [ ] Implement validation for webhook payloads
+- [X] Create webhook ingestion endpoint
+- [X] Implement signature verification utility
+- [X] Add event type filtering logic
+- [X] Set up task queuing in Redis
+- [X] Implement validation for webhook payloads
 - [ ] Add tests for signature verification
 - [ ] Add tests for event filtering
 
 ## Phase 3: Async Delivery + Retry
 - [ ] Implement Celery task for webhook delivery
-- [ ] Configure retry mechanism with exponential backoff
-- [ ] Set up max retry attempts logic
-- [ ] Add error handling for various failure scenarios
+- [X] Configure retry mechanism with exponential backoff
+- [X] Set up max retry attempts logic
+- [x] Add error handling for various failure scenarios
 - [ ] Add tests for delivery and retry logic
 
 ## Phase 4: Delivery Logging + Status APIs
-- [ ] Create DeliveryLog model
-- [ ] Implement DeliveryLog repository
+- [X] Create DeliveryLog model
+- [X] Implement DeliveryLog repository
 - [ ] Add logging for all delivery attempts
-- [ ] Implement status API endpoints
-- [ ] Add subscription attempt history endpoint
+- [X] Implement status API endpoints
+- [X] Add subscription attempt history endpoint
 - [ ] Add tests for status endpoints
 
 ## Phase 5: Log Retention Job
