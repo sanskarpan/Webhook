@@ -97,21 +97,36 @@ def process_webhook_delivery(self, delivery_log_id: str) -> bool:
                 )
                 
                 # Create a new log for the retry
-                retry_log = delivery_service.create_retry_log(
-                    previous_log=log,
-                    next_retry_at=next_retry_at
-                )
-                
-                logger.info(
-                    f"Webhook delivery failed, retry scheduled: ID={log.id}, "
-                    f"Next Attempt={retry_log.attempt_number}, Delay={retry_delay}s"
-                )
-                
-                # Schedule the retry task
-                process_webhook_delivery.apply_async(
-                    args=[str(retry_log.id)],
-                    countdown=retry_delay
-                )
+                try:
+                    retry_log = delivery_service.create_retry_log(
+                        previous_log=log,
+                        next_retry_at=next_retry_at
+                    )
+                    
+                    if retry_log is None:
+                        raise ValueError("Retry log creation returned None")
+                        
+                    logger.info(
+                        f"Webhook delivery failed, retry scheduled: ID={log.id}, "
+                        f"Next Attempt={retry_log.attempt_number}, Delay={retry_delay}s"
+                    )
+                    
+                    # Schedule the retry task
+                    process_webhook_delivery.apply_async(
+                        args=[str(retry_log.id)],
+                        countdown=retry_delay
+                    )
+                except Exception as retry_error:
+                    # Handle any errors during retry creation
+                    logger.error(f"Failed to create or schedule retry log: {str(retry_error)}")
+                    # Update the current log to indicate retry failure
+                    delivery_service.update_status(
+                        log_id=log.id,
+                        status=DeliveryStatus.FINAL_FAILURE,
+                        http_status=http_status,
+                        error_details=f"Failed to create retry log: {error_details}"
+                    )
+                    return False
             else:
                 # No more retries - mark as final failure
                 delivery_service.update_status(

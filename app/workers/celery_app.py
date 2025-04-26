@@ -26,6 +26,10 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     
+    # Connection settings
+    broker_connection_retry=True,  # Retry if connection fails
+    broker_connection_retry_on_startup=True,  # Explicitly set retry behavior on startup
+    
     # Concurrency settings
     worker_concurrency=4,  # Adjust based on your server resources
     
@@ -56,6 +60,8 @@ if settings.ENVIRONMENT == "development":
     celery_app.conf.update(
         task_always_eager=settings.DEBUG,  # Run tasks synchronously in debug mode
         task_eager_propagates=True,  # Propagate exceptions in eager mode
+        broker_url='memory://' if settings.DEBUG else settings.CELERY_BROKER_URL,
+        result_backend='memory://' if settings.DEBUG else settings.CELERY_RESULT_BACKEND,
     )
 
 

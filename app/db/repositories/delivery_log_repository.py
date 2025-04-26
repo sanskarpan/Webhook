@@ -5,10 +5,11 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import and_, delete, desc, func, or_, select
+from sqlalchemy import and_, delete, desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.delivery_log import DeliveryLog, DeliveryStatus
+from app.utils.sql_helpers import get_delivery_log_raw
 
 
 class DeliveryLogRepository:
@@ -44,19 +45,31 @@ class DeliveryLogRepository:
         Returns:
             Created DeliveryLog instance
         """
+        # Create the delivery log without committing
         delivery_log = DeliveryLog(
             webhook_id=webhook_id,
             subscription_id=subscription_id,
             target_url=target_url,
             payload=payload,
             event_type=event_type,
-            status=DeliveryStatus.PENDING,
+            status=DeliveryStatus.PENDING,  # Use the enum directly
             attempt_number=1
         )
+        
+        # Add it to the session
         self.session.add(delivery_log)
-        await self.session.commit()
-        await self.session.refresh(delivery_log)
-        return delivery_log
+        
+        try:
+            # Commit the session
+            await self.session.commit()
+            # Refresh the instance to get generated values
+            await self.session.refresh(delivery_log)
+            return delivery_log
+        except Exception as e:
+            # Roll back in case of error
+            await self.session.rollback()
+            # Re-raise the exception
+            raise e
     
     async def get_by_id(self, log_id: UUID) -> Optional[DeliveryLog]:
         """
@@ -82,11 +95,54 @@ class DeliveryLogRepository:
         Returns:
             List of DeliveryLog instances for the webhook
         """
-        query = select(DeliveryLog).where(
-            DeliveryLog.webhook_id == webhook_id
-        ).order_by(DeliveryLog.attempt_number)
-        result = await self.session.execute(query)
-        return result.scalars().all()
+        # Use raw SQL to avoid enum issues
+        query = text("""
+            SELECT 
+                id, webhook_id, subscription_id, target_url, payload, 
+                event_type, attempt_number, status, http_status, error_details, 
+                created_at, updated_at, next_retry_at
+            FROM delivery_logs
+            WHERE webhook_id = :webhook_id
+            ORDER BY attempt_number
+        """)
+        
+        result = await self.session.execute(query, {"webhook_id": webhook_id})
+        rows = result.fetchall()
+        
+        if not rows:
+            return []
+            
+        logs = []
+        for row in rows:
+            # Convert row to dict
+            row_dict = dict(row._mapping)
+            
+            # Create DeliveryLog object
+            log = DeliveryLog()
+            log.id = row_dict["id"]
+            log.webhook_id = row_dict["webhook_id"]
+            log.subscription_id = row_dict["subscription_id"]
+            log.target_url = row_dict["target_url"]
+            log.payload = row_dict["payload"]
+            log.event_type = row_dict["event_type"]
+            log.attempt_number = row_dict["attempt_number"]
+            
+            # Handle enum conversion
+            status_str = row_dict["status"]
+            for enum_val in DeliveryStatus:
+                if enum_val.value == status_str:
+                    log.status = enum_val
+                    break
+            
+            log.http_status = row_dict["http_status"]
+            log.error_details = row_dict["error_details"]
+            log.created_at = row_dict["created_at"]
+            log.updated_at = row_dict["updated_at"]
+            log.next_retry_at = row_dict["next_retry_at"]
+            
+            logs.append(log)
+            
+        return logs
     
     async def get_recent_by_subscription(
         self, subscription_id: UUID, limit: int = 20
@@ -101,14 +157,58 @@ class DeliveryLogRepository:
         Returns:
             List of recent DeliveryLog instances
         """
-        query = (
-            select(DeliveryLog)
-            .where(DeliveryLog.subscription_id == subscription_id)
-            .order_by(desc(DeliveryLog.created_at))
-            .limit(limit)
-        )
-        result = await self.session.execute(query)
-        return result.scalars().all()
+        # Use raw SQL to avoid enum issues
+        query = text("""
+            SELECT 
+                id, webhook_id, subscription_id, target_url, payload, 
+                event_type, attempt_number, status, http_status, error_details, 
+                created_at, updated_at, next_retry_at
+            FROM delivery_logs
+            WHERE subscription_id = :subscription_id
+            ORDER BY created_at DESC
+            LIMIT :limit
+        """)
+        
+        result = await self.session.execute(query, {
+            "subscription_id": subscription_id,
+            "limit": limit
+        })
+        rows = result.fetchall()
+        
+        if not rows:
+            return []
+            
+        logs = []
+        for row in rows:
+            # Convert row to dict
+            row_dict = dict(row._mapping)
+            
+            # Create DeliveryLog object
+            log = DeliveryLog()
+            log.id = row_dict["id"]
+            log.webhook_id = row_dict["webhook_id"]
+            log.subscription_id = row_dict["subscription_id"]
+            log.target_url = row_dict["target_url"]
+            log.payload = row_dict["payload"]
+            log.event_type = row_dict["event_type"]
+            log.attempt_number = row_dict["attempt_number"]
+            
+            # Handle enum conversion
+            status_str = row_dict["status"]
+            for enum_val in DeliveryStatus:
+                if enum_val.value == status_str:
+                    log.status = enum_val
+                    break
+            
+            log.http_status = row_dict["http_status"]
+            log.error_details = row_dict["error_details"]
+            log.created_at = row_dict["created_at"]
+            log.updated_at = row_dict["updated_at"]
+            log.next_retry_at = row_dict["next_retry_at"]
+            
+            logs.append(log)
+            
+        return logs
     
     async def update_status(
         self,
@@ -143,9 +243,13 @@ class DeliveryLogRepository:
         if next_retry_at is not None:
             log.next_retry_at = next_retry_at
         
-        await self.session.commit()
-        await self.session.refresh(log)
-        return log
+        try:
+            await self.session.commit()
+            await self.session.refresh(log)
+            return log
+        except Exception as e:
+            await self.session.rollback()
+            raise e
     
     async def create_retry_log(
         self,
@@ -173,9 +277,14 @@ class DeliveryLogRepository:
             next_retry_at=next_retry_at
         )
         self.session.add(retry_log)
-        await self.session.commit()
-        await self.session.refresh(retry_log)
-        return retry_log
+        
+        try:
+            await self.session.commit()
+            await self.session.refresh(retry_log)
+            return retry_log
+        except Exception as e:
+            await self.session.rollback()
+            raise e
     
     async def get_due_for_delivery(self, limit: int = 100) -> List[DeliveryLog]:
         """
@@ -239,3 +348,73 @@ class DeliveryLogRepository:
         result = await self.session.execute(query)
         await self.session.commit()
         return result.rowcount
+    
+    async def get_metrics_since(self, since: datetime) -> Dict[str, int]:
+        """
+        Get metrics for delivery logs since a specific timestamp.
+        
+        Args:
+            since: Start timestamp for metrics calculation
+            
+        Returns:
+            Dictionary with metrics including counts by status
+        """
+        # Use SQL to get counts by status
+        query = text("""
+            SELECT 
+                status, 
+                COUNT(*) as count
+            FROM 
+                delivery_logs
+            WHERE 
+                created_at >= :since
+            GROUP BY 
+                status
+        """)
+        
+        result = await self.session.execute(query, {"since": since})
+        rows = result.fetchall()
+        
+        # Initialize metrics with zeroes
+        metrics = {
+            "total": 0,
+            "successful": 0,
+            "failed": 0,
+            "pending": 0,
+            "final_failure": 0
+        }
+        
+        # Process result rows
+        for row in rows:
+            status = row._mapping["status"]
+            count = row._mapping["count"]
+            metrics["total"] += count
+            
+            # Map database status to metrics keys
+            if status == DeliveryStatus.SUCCESS.value:
+                metrics["successful"] = count
+            elif status == DeliveryStatus.FAILED_ATTEMPT.value:
+                metrics["failed"] = count
+            elif status == DeliveryStatus.PENDING.value:
+                metrics["pending"] = count
+            elif status == DeliveryStatus.FINAL_FAILURE.value:
+                metrics["final_failure"] = count
+        
+        # Get additional metrics
+        avg_attempts_query = text("""
+            SELECT 
+                AVG(attempt_number) as avg_attempts
+            FROM 
+                delivery_logs
+            WHERE 
+                created_at >= :since
+        """)
+        
+        avg_result = await self.session.execute(avg_attempts_query, {"since": since})
+        avg_row = avg_result.fetchone()
+        if avg_row and avg_row._mapping["avg_attempts"]:
+            metrics["avg_attempts"] = float(avg_row._mapping["avg_attempts"])
+        else:
+            metrics["avg_attempts"] = 0.0
+        
+        return metrics

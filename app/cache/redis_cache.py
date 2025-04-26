@@ -2,18 +2,32 @@
 Redis cache implementation for storing subscription details.
 """
 import json
+import logging
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import redis
 from pydantic import BaseModel
+from redis.exceptions import RedisError
 
 from app.config import settings
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 # Type variable for Pydantic models
 T = TypeVar('T', bound=BaseModel)
 
 # Initialize Redis connection
-redis_client = redis.from_url(str(settings.REDIS_URL), decode_responses=True)
+try:
+    redis_client = redis.from_url(str(settings.REDIS_URL), decode_responses=True)
+    # Test connection
+    redis_client.ping()
+    REDIS_AVAILABLE = True
+    logger.info("Redis connection established successfully")
+except (RedisError, ConnectionError) as e:
+    logger.warning(f"Redis connection failed: {str(e)}. Caching will be disabled.")
+    REDIS_AVAILABLE = False
+    redis_client = None
 
 
 class RedisCache:
@@ -54,17 +68,24 @@ class RedisCache:
         Returns:
             True if successful, False otherwise
         """
-        formatted_key = RedisCache._format_key(key, prefix)
-        
-        # Convert Pydantic models to dict
-        if isinstance(value, BaseModel):
-            value = value.model_dump()
+        if not REDIS_AVAILABLE:
+            return False
             
-        # Serialize dict/model to JSON string
-        if isinstance(value, dict):
-            value = json.dumps(value)
+        try:
+            formatted_key = RedisCache._format_key(key, prefix)
             
-        return redis_client.set(formatted_key, value, ex=expire)
+            # Convert Pydantic models to dict
+            if isinstance(value, BaseModel):
+                value = value.model_dump()
+                
+            # Serialize dict/model to JSON string
+            if isinstance(value, dict):
+                value = json.dumps(value)
+                
+            return redis_client.set(formatted_key, value, ex=expire)
+        except Exception as e:
+            logger.error(f"Redis set error for key {key}: {str(e)}")
+            return False
     
     @staticmethod
     def get(key: str, prefix: Optional[str] = None) -> Optional[str]:
@@ -78,8 +99,15 @@ class RedisCache:
         Returns:
             String value or None if not found
         """
-        formatted_key = RedisCache._format_key(key, prefix)
-        return redis_client.get(formatted_key)
+        if not REDIS_AVAILABLE:
+            return None
+            
+        try:
+            formatted_key = RedisCache._format_key(key, prefix)
+            return redis_client.get(formatted_key)
+        except Exception as e:
+            logger.error(f"Redis get error for key {key}: {str(e)}")
+            return None
     
     @staticmethod
     def get_json(key: str, prefix: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -93,13 +121,20 @@ class RedisCache:
         Returns:
             Dictionary or None if not found/invalid
         """
-        value = RedisCache.get(key, prefix)
-        if value:
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return None
-        return None
+        if not REDIS_AVAILABLE:
+            return None
+            
+        try:
+            value = RedisCache.get(key, prefix)
+            if value:
+                try:
+                    return json.loads(value)
+                except json.JSONDecodeError:
+                    return None
+            return None
+        except Exception as e:
+            logger.error(f"Redis get_json error for key {key}: {str(e)}")
+            return None
     
     @staticmethod
     def get_model(key: str, model_cls: Type[T], prefix: Optional[str] = None) -> Optional[T]:
@@ -114,13 +149,20 @@ class RedisCache:
         Returns:
             Instantiated model or None if not found/invalid
         """
-        data = RedisCache.get_json(key, prefix)
-        if data:
-            try:
-                return model_cls.model_validate(data)
-            except Exception:
-                return None
-        return None
+        if not REDIS_AVAILABLE:
+            return None
+            
+        try:
+            data = RedisCache.get_json(key, prefix)
+            if data:
+                try:
+                    return model_cls.model_validate(data)
+                except Exception:
+                    return None
+            return None
+        except Exception as e:
+            logger.error(f"Redis get_model error for key {key}: {str(e)}")
+            return None
     
     @staticmethod
     def delete(key: str, prefix: Optional[str] = None) -> bool:
@@ -134,8 +176,15 @@ class RedisCache:
         Returns:
             True if key was deleted, False otherwise
         """
-        formatted_key = RedisCache._format_key(key, prefix)
-        return bool(redis_client.delete(formatted_key))
+        if not REDIS_AVAILABLE:
+            return False
+            
+        try:
+            formatted_key = RedisCache._format_key(key, prefix)
+            return bool(redis_client.delete(formatted_key))
+        except Exception as e:
+            logger.error(f"Redis delete error for key {key}: {str(e)}")
+            return False
     
     @staticmethod
     def exists(key: str, prefix: Optional[str] = None) -> bool:
@@ -149,5 +198,12 @@ class RedisCache:
         Returns:
             True if key exists, False otherwise
         """
-        formatted_key = RedisCache._format_key(key, prefix)
-        return bool(redis_client.exists(formatted_key))
+        if not REDIS_AVAILABLE:
+            return False
+            
+        try:
+            formatted_key = RedisCache._format_key(key, prefix)
+            return bool(redis_client.exists(formatted_key))
+        except Exception as e:
+            logger.error(f"Redis exists error for key {key}: {str(e)}")
+            return False

@@ -13,18 +13,16 @@ A subscription should define at least:
 A unique identifier for the subscription.
 The target URL where the webhook payload should be delivered (POST
 request).
-(Optional but recommended) An optional secret key for payload signature
-verification (see Bonus Points).
+An optional secret key for payload signature verification .
 2. Webhook Ingestion:
 Implement an API endpoint (e.g., /ingest/{subscriptionid} ) that accepts
 incoming webhook payloads via HTTP POST requests (assume JSON body).
-Upon receiving a payload, the service should quickly acknowledge the request (e.g.,
-return a 202 Accepted ) and queue the delivery task for asynchronous processing.
+Upon receiving a payload, the service should quickly acknowledge the request (e.g., return a 202 Accepted ) and queue the delivery task for asynchronous processing.
 3. Asynchronous Delivery Processing:
 Implement background workers to process the queued delivery tasks.
 For each task, the worker should:
 Retrieve the corresponding subscription details (target URL, secret).
-(Optional: Implement signature verification if secret is present).
+Implement signature verification if secret is present.
 Attempt to deliver the original JSON payload via an HTTP POST request to the
 subscription's target URL. Set a reasonable timeout (e.g., 5-10 seconds).
 4. Retry Mechanism:
@@ -60,10 +58,7 @@ Cache subscription details (target URL, secret) based on subscription
 id to avoid frequent database lookups in workers.
 
 Technical Requirements:
-Language: Use either Python or Go. Choose the language you are most comfortable with.
-Framework: You are free to choose any web framework suitable for your chosen language
-(e.g., Flask, Django, FastAPI for Python; Gin, Echo for Go).
-Database: Choose a suitable database (SQL or NoSQL). Your choice should reflect
+Database:  Your choice should reflect
 considerations for storing subscriptions and a potentially large volume of delivery logs. Explain
 your choice in the README.
 Asynchronous Tasks / Queuing: Implement a robust mechanism for queuing webhook
@@ -73,8 +68,6 @@ Containerisation: The entire application (API, background workers, database, Red
 applicable) must be containerised using Docker and orchestrated using docker-compose.
 The setup should work locally with just Docker installed. Assume no other software will be
 installed on the machine. Also all testing will be done on a mac device.
-Deployment: Deploy the application to a free tier of any public cloud provider (e.g., AWS
-EC2/ECS Fargate, Google Cloud Run/App Engine, Heroku, Render).
 Presentation (UI):
 A minimal UI is required to interact with the service (manage subscriptions, view delivery
 status/logs for a subscription).
@@ -127,19 +120,12 @@ Solution utilizes free-tier resources effectively.
 Cost estimation is provided and reasonable.
 7. Minimal UI:
 UI allows basic interaction and testing of features.
-Bonus Points:
+Additional Core Points:
 Payload Signature Verification: Implement verification of incoming webhooks using a
 standard method (e.g., checking an X-Hub-Signature-256 header containing an HMAC-
-SHA256 hash of the payload, using the stored subscription secret) (+2 points). The ingestion
+SHA256 hash of the payload, using the stored subscription secret). The ingestion
 endpoint should reject payloads with invalid signatures.
 Event Type Filtering: Allow subscriptions to specify specific event types they are interested in
 (e.g., order.created , user.updated ). The ingestion endpoint should accept an event type
 (e.g., in a header or query param), and only deliver webhooks to subscriptions matching that
-event type (+2 points).
-Submission:
-Use the form link in the email to submit. Provide your git repo link, deployment link.
-Please use same email id in all communications.
-Note: You are encouraged to use online resources, libraries, and tools. Please provide attribution in
-your README. Make reasonable assumptions if any requirement is unclear, and document these
-assumptions.
-Good luck, and happy building!
+event type .

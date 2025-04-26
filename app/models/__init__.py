@@ -1,5 +1,6 @@
 """
-Importing models to make them available to Alembic for migrations.
+Models package.
 """
-from app.models.subscription import Subscription
 from app.models.delivery_log import DeliveryLog, DeliveryStatus
+from app.models.subscription import Subscription 
+from app.models.webhook import Webhook

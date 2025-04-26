@@ -4,16 +4,17 @@ DeliveryLog model definition.
 import enum
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from sqlalchemy import JSON, Column, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.database import Base
 
 
-class DeliveryStatus(enum.Enum):
+class DeliveryStatus(str, enum.Enum):
     """Enum for webhook delivery status."""
     SUCCESS = "success"
     FAILED_ATTEMPT = "failed_attempt"  # Temporary failure, will retry
@@ -33,7 +34,11 @@ class DeliveryLog(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     
     # Webhook metadata
-    webhook_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    webhook_id = Column(
+        UUID(as_uuid=True), 
+        nullable=False, 
+        index=True
+    )
     subscription_id = Column(
         UUID(as_uuid=True),
         ForeignKey("subscriptions.id", ondelete="CASCADE"),
@@ -47,7 +52,7 @@ class DeliveryLog(Base):
     # Delivery attempt details
     attempt_number = Column(Integer, nullable=False, default=1)
     status = Column(
-        Enum(DeliveryStatus),
+        Enum(DeliveryStatus, name='deliverystatus', create_constraint=True, native_enum=True),
         nullable=False,
         default=DeliveryStatus.PENDING,
         index=True
@@ -65,6 +70,9 @@ class DeliveryLog(Base):
     )
     next_retry_at = Column(DateTime(timezone=True), nullable=True, index=True)
     
+    # Relationships
+    subscription = relationship("Subscription", backref="delivery_logs")
+    
     def __repr__(self) -> str:
         """String representation."""
         return (
@@ -73,3 +81,21 @@ class DeliveryLog(Base):
             f"attempt={self.attempt_number}, "
             f"status={self.status})>"
         )
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the delivery log to a dictionary."""
+        return {
+            "id": str(self.id),
+            "webhook_id": str(self.webhook_id),
+            "subscription_id": str(self.subscription_id),
+            "target_url": self.target_url,
+            "payload": self.payload,
+            "event_type": self.event_type,
+            "attempt_number": self.attempt_number,
+            "status": self.status.value if self.status else None,
+            "http_status": self.http_status,
+            "error_details": self.error_details,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "next_retry_at": self.next_retry_at.isoformat() if self.next_retry_at else None
+        }

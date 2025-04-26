@@ -21,6 +21,15 @@ class SubscriptionBase(BaseModel):
         default=None,
         description="List of event types this subscription is interested in. If None, all events are allowed."
     )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "target_url": "https://example.com/webhook-receiver",
+                "secret_key": "your-secret-key-for-signing",
+                "event_types": ["order.created", "order.updated", "user.registered"]
+            }
+        }
 
 
 class SubscriptionCreate(SubscriptionBase):
@@ -58,6 +67,15 @@ class SubscriptionUpdate(BaseModel):
                         f"Event type '{event_type}' does not follow the 'resource.action' format"
                     )
         return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "target_url": "https://example.com/new-webhook-endpoint",
+                "secret_key": "updated-secret-key",
+                "event_types": ["order.created", "order.canceled"]
+            }
+        }
 
 
 class SubscriptionInDB(SubscriptionBase):
@@ -69,6 +87,16 @@ class SubscriptionInDB(SubscriptionBase):
     class Config:
         """Pydantic config."""
         from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "target_url": "https://example.com/webhook-receiver",
+                "secret_key": "your-secret-key-for-signing",
+                "event_types": ["order.created", "order.updated"],
+                "created_at": "2023-01-01T12:00:00Z",
+                "updated_at": "2023-01-01T12:00:00Z"
+            }
+        }
 
 
 class SubscriptionResponse(SubscriptionInDB):
@@ -80,6 +108,31 @@ class SubscriptionList(BaseModel):
     """Schema for a list of subscriptions."""
     items: List[SubscriptionResponse]
     total: int
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "items": [
+                    {
+                        "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                        "target_url": "https://example.com/webhook-receiver",
+                        "secret_key": "secret-key-1",
+                        "event_types": ["order.created", "order.updated"],
+                        "created_at": "2023-01-01T12:00:00Z",
+                        "updated_at": "2023-01-01T12:00:00Z"
+                    },
+                    {
+                        "id": "4fa85f64-5717-4562-b3fc-2c963f66afa7",
+                        "target_url": "https://another-example.com/webhooks",
+                        "secret_key": "secret-key-2",
+                        "event_types": ["user.created", "user.updated"],
+                        "created_at": "2023-01-02T12:00:00Z",
+                        "updated_at": "2023-01-02T12:00:00Z"
+                    }
+                ],
+                "total": 2
+            }
+        }
 
 
 class SubscriptionStatus(BaseModel):
@@ -90,3 +143,15 @@ class SubscriptionStatus(BaseModel):
     successful_deliveries: int
     failed_deliveries: int
     pending_deliveries: int
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "active": True,
+                "total_deliveries": 125,
+                "successful_deliveries": 110,
+                "failed_deliveries": 10,
+                "pending_deliveries": 5
+            }
+        }

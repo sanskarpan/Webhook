@@ -157,7 +157,9 @@ class SubscriptionService:
                 "id": str(subscription.id),
                 "target_url": subscription.target_url,
                 "secret_key": subscription.secret_key,
-                "event_types": subscription.event_types
+                "event_types": subscription.event_types,
+                "created_at": subscription.created_at.isoformat() if subscription.created_at else None,
+                "updated_at": subscription.updated_at.isoformat() if subscription.updated_at else None
             },
             prefix="subscription"
         )
@@ -177,11 +179,23 @@ class SubscriptionService:
             return None
         
         # Convert the cached JSON back to a Subscription object
+        from datetime import datetime
+        
+        created_at = None
+        if cached_data.get("created_at"):
+            created_at = datetime.fromisoformat(cached_data["created_at"])
+        
+        updated_at = None
+        if cached_data.get("updated_at"):
+            updated_at = datetime.fromisoformat(cached_data["updated_at"])
+            
         return Subscription(
             id=UUID(cached_data["id"]),
             target_url=cached_data["target_url"],
             secret_key=cached_data["secret_key"],
-            event_types=cached_data["event_types"]
+            event_types=cached_data["event_types"],
+            created_at=created_at,
+            updated_at=updated_at
         )
     
     def _delete_cached_subscription(self, subscription_id: UUID) -> None:
