@@ -16,7 +16,7 @@
 - [X] Implement Subscription service
 - [X] Implement CRUD API endpoints for subscriptions
 - [X] Add validation for subscription data
-- [ ] Add basic tests for subscription endpoints
+- [X] Add basic tests for subscription endpoints
 
 ## Phase 2: Ingestion + Verification + Event Filtering
 - [X] Create webhook ingestion endpoint
@@ -25,14 +25,14 @@
 - [X] Set up task queuing in Redis
 - [X] Implement validation for webhook payloads
 - [X] Add tests for signature verification
-- [ ] Add tests for event filtering
+- [X] Add tests for event filtering
 
 ## Phase 3: Async Delivery + Retry
 - [X] Implement Celery task for webhook delivery
 - [X] Configure retry mechanism with exponential backoff
 - [X] Set up max retry attempts logic
 - [x] Add error handling for various failure scenarios
-- [ ] Add tests for delivery and retry logic
+- [X] Add tests for delivery and retry logic
 
 ## Phase 4: Delivery Logging + Status APIs
 - [X] Create DeliveryLog model
@@ -40,24 +40,24 @@
 - [X] Add logging for all delivery attempts
 - [X] Implement status API endpoints
 - [X] Add subscription attempt history endpoint
-- [ ] Add tests for status endpoints
+- [X] Add tests for status endpoints
 
 ## Phase 5: Log Retention Job
 - [X] Create scheduled cleanup task
 - [X] Configure Celery Beat for periodic execution
 - [X] Implement log retention policy (72 hours)
-- [ ] Add tests for log cleanup
+- [X] Add tests for log cleanup
 
 ## Phase 6: Minimal UI
 - [X] Configure Swagger/OpenAPI with clean styling
-- [ ] Create custom UI components if needed beyond Swagger
-- [ ] Test UI functionality for managing subscriptions
-- [ ] Test UI functionality for viewing delivery logs
+- [X] Create custom UI components if needed beyond Swagger
+- [X] Test UI functionality for managing subscriptions
+- [X] Test UI functionality for viewing delivery logs
 
 ## Phase 7: Final Polish + Deployment
 - [X] Review and optimize database queries and indexes
 - [X] Ensure proper error handling throughout the application
-- [ ] Add comprehensive logging
+- [X] Add comprehensive logging
 - [ ] Configure for deployment to a free-tier provider
 - [ ] Create detailed deployment instructions
 - [x] Add cost estimation calculations
