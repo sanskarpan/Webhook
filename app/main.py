@@ -6,7 +6,7 @@ import time
 import traceback
 from typing import Dict, Any
 
-from fastapi import FastAPI, Depends, Request, Response, responses, status
+from fastapi import FastAPI, Depends, Request, Response, responses, status as http_status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.deps import get_delivery_service
-from app.api.routes import status, subscriptions, webhooks
+from app.api.routes import status as status_router, subscriptions, webhooks
 from app.config import settings
 from app.services.delivery_service import DeliveryService
 
@@ -137,7 +137,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Handle validation errors with better formatting."""
     logger.error(f"Validation error: {str(exc)}")
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": str(exc)},
     )
 
@@ -146,7 +146,7 @@ async def database_exception_handler(request: Request, exc: ConnectionError):
     """Handle database connection errors."""
     logger.error(f"Database connection error: {str(exc)}")
     return JSONResponse(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
         content={"detail": "Database service unavailable. Please try again later."},
     )
 
@@ -156,7 +156,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {str(exc)}")
     logger.error(traceback.format_exc())
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error occurred."},
     )
 
@@ -197,7 +197,7 @@ if settings.CORS_ORIGINS:
 # Include API routes
 app.include_router(subscriptions.router)
 app.include_router(webhooks.router)
-app.include_router(status.router)
+app.include_router(status_router.router)
 
 
 # Custom OpenAPI and documentation routes
