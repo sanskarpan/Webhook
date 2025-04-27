@@ -1,6 +1,7 @@
 """
 API routes for subscription management.
 """
+import logging
 from typing import List, Optional, Dict
 from uuid import UUID
 
@@ -11,6 +12,9 @@ from app.schemas.delivery import DeliveryAttemptList, DeliveryLogResponse, Deliv
 from app.schemas.subscription import (SubscriptionCreate, SubscriptionList, SubscriptionResponse, SubscriptionUpdate)
 from app.services.delivery_service import DeliveryService
 from app.services.subscription_service import SubscriptionService
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
@@ -40,8 +44,23 @@ async def create_subscription(
     - **secret_key**: Optional secret key for HMAC-SHA256 signature verification
     - **event_types**: Optional list of event types this subscription is interested in
     """
-    created = await service.create_subscription(subscription)
-    return created
+    try:
+        logger.info(f"Creating new subscription with target URL: {subscription.target_url}")
+        created = await service.create_subscription(subscription)
+        logger.info(f"Subscription created successfully with ID: {created.id}")
+        return created
+    except ConnectionError as e:
+        logger.error(f"Database connection error during subscription creation: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable. Please try again later."
+        )
+    except Exception as e:
+        logger.exception(f"Error creating subscription: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating subscription: {str(e)}"
+        )
 
 
 @router.get(
@@ -57,13 +76,30 @@ async def get_subscription(
     """
     Get a specific webhook subscription by ID.
     """
-    subscription = await service.get_subscription(subscription_id)
-    if not subscription:
+    try:
+        logger.info(f"Getting subscription with ID: {subscription_id}")
+        subscription = await service.get_subscription(subscription_id)
+        if not subscription:
+            logger.warning(f"Subscription not found: {subscription_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subscription not found"
+            )
+        return subscription
+    except HTTPException:
+        raise
+    except ConnectionError as e:
+        logger.error(f"Database connection error while retrieving subscription: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Subscription not found"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Database service unavailable. Please try again later."
         )
-    return subscription
+    except Exception as e:
+        logger.exception(f"Error retrieving subscription {subscription_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving subscription: {str(e)}"
+        )
 
 
 @router.get(
@@ -84,11 +120,25 @@ async def list_subscriptions(
     """
     List all webhook subscriptions with pagination.
     """
-    subscriptions, total = await service.list_subscriptions(skip=skip, limit=limit)
-    return {
-        "items": subscriptions,
-        "total": total
-    }
+    try:
+        logger.info(f"Listing subscriptions with skip={skip}, limit={limit}")
+        subscriptions, total = await service.list_subscriptions(skip=skip, limit=limit)
+        return {
+            "items": subscriptions,
+            "total": total
+        }
+    except ConnectionError as e:
+        logger.error(f"Database connection error while listing subscriptions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable. Please try again later."
+        )
+    except Exception as e:
+        logger.exception(f"Error listing subscriptions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error listing subscriptions: {str(e)}"
+        )
 
 
 @router.put(
@@ -119,13 +169,31 @@ async def update_subscription(
     
     Omitted fields will remain unchanged.
     """
-    updated = await service.update_subscription(subscription_id, subscription_data)
-    if not updated:
+    try:
+        logger.info(f"Updating subscription with ID: {subscription_id}")
+        updated = await service.update_subscription(subscription_id, subscription_data)
+        if not updated:
+            logger.warning(f"Subscription not found for update: {subscription_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subscription not found"
+            )
+        logger.info(f"Subscription {subscription_id} updated successfully")
+        return updated
+    except HTTPException:
+        raise
+    except ConnectionError as e:
+        logger.error(f"Database connection error while updating subscription: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Subscription not found"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable. Please try again later."
         )
-    return updated
+    except Exception as e:
+        logger.exception(f"Error updating subscription {subscription_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating subscription: {str(e)}"
+        )
 
 
 @router.delete(
@@ -183,16 +251,26 @@ async def delete_subscription(
     Delete a webhook subscription.
     """
     try:
+        logger.info(f"Deleting subscription with ID: {subscription_id}")
         deleted = await service.delete_subscription(subscription_id)
         if not deleted:
+            logger.warning(f"Subscription not found for deletion: {subscription_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Subscription not found"
             )
+        logger.info(f"Subscription {subscription_id} deleted successfully")
         return {"message": f"Subscription {subscription_id} has been successfully deleted"}
     except HTTPException:
         raise
+    except ConnectionError as e:
+        logger.error(f"Database connection error while deleting subscription: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable. Please try again later."
+        )
     except Exception as e:
+        logger.exception(f"Error deleting subscription {subscription_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting subscription: {str(e)}"
@@ -223,6 +301,7 @@ async def get_subscription_attempts(
     Get recent webhook delivery attempts for a specific subscription.
     """
     try:
+        logger.info(f"Getting delivery attempts for subscription ID: {subscription_id}")
         delivery_logs = await delivery_service.get_delivery_attempts(
             subscription_id=subscription_id,
             limit=limit
@@ -246,7 +325,14 @@ async def get_subscription_attempts(
             "total": len(attempts),
             "subscription_id": subscription_id
         }
+    except ConnectionError as e:
+        logger.error(f"Database connection error while retrieving delivery attempts: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable. Please try again later."
+        )
     except Exception as e:
+        logger.exception(f"Error retrieving delivery attempts for subscription {subscription_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving delivery attempts: {str(e)}"

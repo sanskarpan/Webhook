@@ -3,14 +3,18 @@ Main application module for the Webhook Delivery Service.
 """
 import logging
 import time
+import traceback
 from typing import Dict, Any
 
-from fastapi import FastAPI, Depends, responses
+from fastapi import FastAPI, Depends, Request, Response, responses, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.deps import get_delivery_service
 from app.api.routes import status, subscriptions, webhooks
@@ -22,6 +26,8 @@ logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+
+logger = logging.getLogger(__name__)
 
 # Response models for API endpoints
 class HealthResponse(BaseModel):
@@ -115,6 +121,68 @@ app = FastAPI(
     docs_url=None,  # We'll customize the docs URL
     redoc_url=None,  # We'll customize the redoc URL
 )
+
+# Add exception handlers
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Handle HTTP exceptions and provide better error messages."""
+    logger.error(f"HTTP error: {exc.detail} (status_code={exc.status_code})")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors with better formatting."""
+    logger.error(f"Validation error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": str(exc)},
+    )
+
+@app.exception_handler(ConnectionError)
+async def database_exception_handler(request: Request, exc: ConnectionError):
+    """Handle database connection errors."""
+    logger.error(f"Database connection error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Database service unavailable. Please try again later."},
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle general exceptions with detailed logging."""
+    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error occurred."},
+    )
+
+# Middleware to log all requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests and their processing time."""
+    start_time = time.time()
+    
+    # Get client IP
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Log the request
+    logger.info(f"Request: {request.method} {request.url.path} from {client_ip}")
+    
+    try:
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        
+        # Log the response
+        logger.info(f"Response: {response.status_code} for {request.method} {request.url.path} in {process_time:.4f}s")
+        return response
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"Error processing {request.method} {request.url.path} in {process_time:.4f}s: {str(e)}")
+        raise
 
 # Set up CORS
 if settings.CORS_ORIGINS:
@@ -259,3 +327,7 @@ async def startup_event():
     """
     app.state.start_time = time.time()
     logging.info(f"Application started: {app.title} v{app.version}")
+    logging.info(f"Running in {settings.ENVIRONMENT} mode")
+    logging.info(f"Port configured: {settings.PORT}")
+    logging.info(f"Database URL configured: {'yes' if settings.DATABASE_URL else 'no'}")
+    logging.info(f"Redis URL configured: {'yes' if settings.REDIS_URL else 'no'}")

@@ -3,11 +3,34 @@ Configuration settings for the application.
 """
 from typing import List, Optional
 import os
+import re
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 # Load .env file if it exists
 load_dotenv()
+
+# Function to fix Supabase URLs
+def fix_database_url(url: Optional[str]) -> Optional[str]:
+    """Convert Supabase PostgreSQL URL to proper SQLAlchemy format if needed."""
+    if not url:
+        return None
+        
+    # If it's already in the correct format, don't modify it
+    if url.startswith("postgresql+asyncpg://") or url.startswith("postgresql://"):
+        return url
+        
+    # Check if it's a Supabase URL (postgresql://)
+    if url.startswith("postgres://"):
+        # Supabase format is postgres://, SQLAlchemy expects postgresql://
+        url = "postgresql" + url[8:]
+        
+    # If it's an async URL, we need to specify the driver
+    if "ASYNC_DATABASE_URL" in os.environ or "async" in os.environ.get("DATABASE_MODE", ""):
+        if not url.startswith("postgresql+asyncpg://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://")
+            
+    return url
 
 class Settings(BaseModel):
     """
@@ -23,8 +46,8 @@ class Settings(BaseModel):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "webhook")
 
     # Database
-    DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL", None)
-    SYNC_DATABASE_URL: Optional[str] = os.getenv("SYNC_DATABASE_URL", None)
+    DATABASE_URL: Optional[str] = fix_database_url(os.getenv("DATABASE_URL", None))
+    SYNC_DATABASE_URL: Optional[str] = fix_database_url(os.getenv("SYNC_DATABASE_URL", os.getenv("DATABASE_URL", None)))
 
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", os.getenv("REDISHOST", "redis://localhost:6379/0"))
