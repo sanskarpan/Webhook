@@ -7,6 +7,7 @@ import os
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import redis
+import ssl
 from pydantic import BaseModel
 from redis.exceptions import RedisError
 
@@ -33,7 +34,14 @@ try:
     
     # Initialize connection
     if redis_url:
-        redis_client = redis.from_url(redis_url, decode_responses=True)
+        # Use TLS for Upstash or rediss:// schemes
+        if 'upstash.io' in redis_url or redis_url.startswith('rediss://'):
+            ssl_ctx = ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+            redis_client = redis.from_url(redis_url, decode_responses=True, ssl_context=ssl_ctx)
+        else:
+            redis_client = redis.from_url(redis_url, decode_responses=True)
         # Test connection
         redis_client.ping()
         REDIS_AVAILABLE = True
