@@ -35,20 +35,19 @@ try:
     # Initialize connection
     if redis_url:
         # Use TLS for Upstash or rediss:// schemes
+        connect_kwargs = {"decode_responses": True, "socket_connect_timeout": 1, "socket_timeout": 1}
         if 'upstash.io' in redis_url or redis_url.startswith('rediss://'):
             ssl_ctx = ssl.create_default_context()
             ssl_ctx.check_hostname = False
             ssl_ctx.verify_mode = ssl.CERT_NONE
-            redis_client = redis.from_url(redis_url, decode_responses=True, ssl_context=ssl_ctx)
-        else:
-            redis_client = redis.from_url(redis_url, decode_responses=True)
-        # Test connection
-        redis_client.ping()
+            connect_kwargs["ssl_context"] = ssl_ctx
+        # Initialize Redis client with short timeouts (no blocking ping)
+        redis_client = redis.from_url(redis_url, **connect_kwargs)
         REDIS_AVAILABLE = True
-        logger.info("Redis connection established successfully")
+        logger.info("Redis client initialized; caching enabled")
     else:
         logger.warning("No Redis URL provided. Caching will be disabled.")
-except (RedisError, ConnectionError, AttributeError) as e:
+except Exception as e:
     logger.warning(f"Redis connection failed: {str(e)}. Caching will be disabled.")
 
 

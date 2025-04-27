@@ -17,7 +17,65 @@ A robust webhook delivery system that ingests, queues, delivers, and tracks webh
 
 ## Live Application
 
-The application is deployed and available at: [https://webhook-delivery-service.onrender.com](https://webhook-delivery-service.onrender.com)
+The application is deployed and available at: [https://webhook-production-a5f2.up.railway.app/](https://webhook-production-a5f2.up.railway.app/)
+
+## Monitoring
+
+- **Health Check**: `GET https://webhook-production-a5f2.up.railway.app/health`
+- **System Metrics**: `GET https://webhook-production-a5f2.up.railway.app/monitor`
+
+### Flower Dashboard
+
+- **Local (Docker Compose)**: Visit `http://localhost:5555`
+
+## Sample Usage (curl Commands)
+
+### Manage Subscriptions
+
+```bash
+# Create a subscription
+curl -X POST https://webhook-production-a5f2.up.railway.app/subscriptions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_url": "https://example.com/endpoint",
+    "event_types": ["order.created", "user.signed_up"]
+  }'
+
+# Get a subscription by ID
+curl https://webhook-production-a5f2.up.railway.app/subscriptions/<subscription_id>
+
+# Update a subscription
+curl -X PUT https://webhook-production-a5f2.up.railway.app/subscriptions/<subscription_id> \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": false}'
+
+# Delete a subscription
+curl -X DELETE https://webhook-production-a5f2.up.railway.app/subscriptions/<subscription_id>
+```
+
+### Ingest Webhooks
+
+```bash
+curl -X POST https://webhook-production-a5f2.up.railway.app/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subscription_id": "<subscription_id>",
+    "payload": {"order_id":"12345"},
+    "event_type": "order.created"
+  }'
+```
+
+### Check Webhook Delivery Status
+
+```bash
+curl https://webhook-production-a5f2.up.railway.app/status/<webhook_id>
+```
+
+### Retrieve System Metrics
+
+```bash
+curl https://webhook-production-a5f2.up.railway.app/monitor
+```
 
 ## Architecture Choices
 
@@ -380,7 +438,7 @@ Based on the requirement of handling 5,000 webhooks per day with an average of 1
 - **Total webhook deliveries per day**: 5,000 × 1.2 = 6,000
 - **Total webhook deliveries per month**: 6,000 × 30 = 180,000
 
-Estimated monthly costs using free-tier cloud services (Render.com):
+Estimated monthly costs using free-tier cloud services (Railway.com):
 
 | Service | Specs | Monthly Usage | Free Tier | Cost |
 |---------|-------|---------------|-----------|------|
@@ -418,5 +476,4 @@ Additional considerations:
 - [uvicorn](https://www.uvicorn.org/) - ASGI server
 
 ### Tools
-- GitHub Copilot - Code assistance
 - Claude AI - Documentation assistance

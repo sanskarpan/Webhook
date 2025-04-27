@@ -282,6 +282,46 @@ async def health_check():
     return {"status": "healthy", "version": app.version}
 
 
+# System monitoring endpoint
+@app.get(
+    "/monitor",
+    tags=["monitoring"],
+    summary="Detailed system monitoring",
+    response_model=MonitorResponse,
+    description="Get system monitoring info: health, version, uptime, current time, delivery metrics"
+)
+async def system_monitor(
+    delivery_service: DeliveryService = Depends(get_delivery_service)
+):
+    """
+    Detailed system monitoring endpoint.
+    """
+    # Calculate uptime
+    uptime_seconds = time.time() - app.state.start_time
+    # Fetch last hour delivery metrics
+    summary = await delivery_service.get_delivery_metrics(hours=24)
+    metrics = {
+        "last_hour": MonitorMetrics(
+            total_attempts=summary.total_attempts,
+            successful=summary.successful,
+            failed=summary.failed,
+            pending=summary.pending,
+            final_failures=summary.final_failure,
+            error_rate=(summary.failed / summary.total_attempts * 100) if summary.total_attempts else 0.0
+        )
+    }
+    # Current time
+    from datetime import datetime
+    current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    return MonitorResponse(
+        status="healthy",
+        version=app.version,
+        uptime_seconds=uptime_seconds,
+        current_time=current_time,
+        metrics=metrics
+    )
+
+
 # Root endpoint
 @app.get(
     "/", 
