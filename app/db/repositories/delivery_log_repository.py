@@ -392,13 +392,13 @@ class DeliveryLogRepository:
             
             # Map database status to metrics keys
             if status == DeliveryStatus.SUCCESS.value:
-                metrics["successful"] = count
+                metrics["successful"] += count
             elif status == DeliveryStatus.FAILED_ATTEMPT.value:
-                metrics["failed"] = count
+                metrics["failed"] += count
             elif status == DeliveryStatus.PENDING.value:
-                metrics["pending"] = count
+                metrics["pending"] += count
             elif status == DeliveryStatus.FINAL_FAILURE.value:
-                metrics["final_failure"] = count
+                metrics["final_failure"] += count
         
         # Get additional metrics
         avg_attempts_query = text("""

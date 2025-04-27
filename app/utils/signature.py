@@ -75,4 +75,5 @@ def parse_signature_header(signature_header: Optional[str]) -> Optional[str]:
     if not signature_header.startswith("sha256="):
         return None
     
+    # Return the entire header including the prefix, as verify_signature expects it
     return signature_header

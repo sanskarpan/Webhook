@@ -142,12 +142,19 @@ class WebhookRequest(BaseModel):
 class WebhookIngestionFailure(BaseModel):
     """Response model for webhook ingestion failures."""
     error: str = Field(description="Error message")
-    detail: str = Field(description="Detailed error information")
+    detail: str | Dict[str, Any] = Field(description="Detailed error information")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "error": "Invalid signature",
-                "detail": "The provided X-Hub-Signature-256 does not match the calculated signature"
+                "detail": {
+                    "error": "Invalid signature",
+                    "detail": "The provided signature does not match the expected signature",
+                    "debug_info": {
+                        "received": "sha256=1234567890abcdef",
+                        "note": "Signatures are calculated using canonical JSON representation with sorted keys"
+                    }
+                }
             }
         }

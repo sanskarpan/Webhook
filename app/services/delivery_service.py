@@ -19,6 +19,7 @@ from app.models.subscription import Subscription
 from app.models.webhook import Webhook
 from app.schemas.delivery import DeliveryStatusSummary
 from app.utils.sql_helpers import create_delivery_log_raw, get_delivery_log_raw, update_delivery_log_status_raw, create_retry_log_raw, update_delivery_log_simple
+from app.utils.signature import calculate_signature
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,51 @@ class DeliveryService:
             next_retry_at=next_retry_at
         )
 
+    async def deliver_webhook(self, log: DeliveryLog) -> Tuple[bool, Optional[int], Optional[str]]:
+        """
+        Attempt to deliver a webhook.
+        
+        Args:
+            log: DeliveryLog instance to deliver
+            
+        Returns:
+            Tuple of (success, http_status_code, error_details)
+        """
+        try:
+            # Get the subscription for the secret key
+            subscription = await self.get_subscription(log.subscription_id)
+            if not subscription:
+                return False, None, "Subscription not found"
+            
+            # Calculate HMAC signature for payload
+            signature = calculate_signature(log.payload, subscription.secret_key)
+            
+            # Send the webhook to the target URL
+            with httpx.Client(timeout=settings.WEBHOOK_TIMEOUT) as client:
+                response = client.post(
+                    url=log.target_url,
+                    json=log.payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "User-Agent": f"{settings.APP_NAME}/1.0",
+                        "X-Webhook-ID": str(log.webhook_id),
+                        "X-Delivery-Attempt": str(log.attempt_number),
+                        "X-Hub-Signature-256": signature
+                    }
+                )
+                
+                # Check if the request was successful (2xx status code)
+                success = 200 <= response.status_code < 300
+                return success, response.status_code, (
+                    None if success else f"Target returned {response.status_code}: {response.text[:200]}"
+                )
+                
+        except httpx.RequestError as e:
+            # Handle connection errors, timeouts, etc.
+            return False, None, f"Request error: {str(e)}"
+        except Exception as e:
+            # Handle any other unexpected errors
+            return False, None, f"Unexpected error: {str(e)}"
 
 class SyncDeliveryService:
     """Service for webhook delivery operations using synchronous SQLAlchemy."""
@@ -436,6 +482,14 @@ class SyncDeliveryService:
             Tuple of (success, http_status_code, error_details)
         """
         try:
+            # Get the subscription for the secret key
+            subscription = self.get_subscription(log.subscription_id)
+            if not subscription:
+                return False, None, "Subscription not found"
+            
+            # Calculate HMAC signature for payload
+            signature = calculate_signature(log.payload, subscription.secret_key)
+            
             # Send the webhook to the target URL
             with httpx.Client(timeout=settings.WEBHOOK_TIMEOUT) as client:
                 response = client.post(
@@ -445,7 +499,8 @@ class SyncDeliveryService:
                         "Content-Type": "application/json",
                         "User-Agent": f"{settings.APP_NAME}/1.0",
                         "X-Webhook-ID": str(log.webhook_id),
-                        "X-Delivery-Attempt": str(log.attempt_number)
+                        "X-Delivery-Attempt": str(log.attempt_number),
+                        "X-Hub-Signature-256": signature
                     }
                 )
                 

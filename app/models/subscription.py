@@ -24,7 +24,7 @@ class Subscription(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     target_url = Column(String(255), nullable=False, index=True)
-    secret_key = Column(String(255), nullable=True)
+    secret_key = Column(String(255), nullable=False)
     event_types = Column(ARRAY(String), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(

@@ -182,8 +182,6 @@ def custom_openapi():
         routes=app.routes,
     )
     
-    # Add custom components and security schemes if needed
-    # openapi_schema["components"] = {...}
     
     app.openapi_schema = openapi_schema
     return app.openapi_schema

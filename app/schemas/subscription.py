@@ -13,9 +13,8 @@ class SubscriptionBase(BaseModel):
     target_url: AnyUrl = Field(
         description="The URL where webhook payloads will be delivered via POST"
     )
-    secret_key: Optional[str] = Field(
-        default=None,
-        description="Optional secret key used for HMAC-SHA256 signature verification"
+    secret_key: str = Field(
+        description="Secret key used for HMAC-SHA256 signature verification"
     )
     event_types: Optional[List[str]] = Field(
         default=None,
@@ -45,7 +44,7 @@ class SubscriptionUpdate(BaseModel):
     )
     secret_key: Optional[str] = Field(
         default=None,
-        description="Optional secret key used for HMAC-SHA256 signature verification"
+        description="Secret key used for HMAC-SHA256 signature verification"
     )
     event_types: Optional[List[str]] = Field(
         default=None,

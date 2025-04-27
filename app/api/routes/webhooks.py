@@ -24,9 +24,13 @@ router = APIRouter(prefix="/ingest", tags=["webhooks"])
         "Ingest a webhook payload for asynchronous delivery to a subscription endpoint.\n\n"
         "**This endpoint:**\n"
         "* Validates the payload against the subscription\n"
-        "* Verifies the signature if provided\n"
+        "* Verifies the signature (required - must provide X-Hub-Signature-256 header)\n"
         "* Filters based on event type if specified\n"
         "* Queues the webhook for asynchronous delivery\n\n"
+        "**Signature Verification:**\n"
+        "* The X-Hub-Signature-256 header must be in the format `sha256=<hex_signature>`\n"
+        "* The signature is calculated as HMAC-SHA256 of the canonical JSON payload using the subscription's secret key\n"
+        "* The canonical JSON payload is created using `json.dumps(payload, sort_keys=True, separators=(',', ':'))`\n\n"
         "**The system will automatically:**\n"
         "* Deliver the webhook to the target URL\n"
         "* Retry failed deliveries with exponential backoff\n"
@@ -40,7 +44,11 @@ router = APIRouter(prefix="/ingest", tags=["webhooks"])
             "model": WebhookIngestionResponse
         },
         400: {
-            "description": "Invalid request or signature",
+            "description": "Invalid request or event type not allowed",
+            "model": WebhookIngestionFailure
+        },
+        401: {
+            "description": "Missing or invalid signature",
             "model": WebhookIngestionFailure
         },
         404: {
@@ -103,9 +111,9 @@ async def ingest_webhook(
         None, 
         description="The type of event (e.g., 'order.created')"
     ),
-    x_hub_signature_256: Optional[str] = Header(
-        None,
-        description="HMAC-SHA256 signature for payload verification",
+    x_hub_signature_256: str = Header(
+        ...,
+        description="HMAC-SHA256 signature for payload verification in the format 'sha256=<hex_signature>' (required). Generated using the subscription's secret key.",
         alias="X-Hub-Signature-256"
     ),
     service: WebhookService = Depends(get_webhook_service)
@@ -114,7 +122,7 @@ async def ingest_webhook(
     Ingest a webhook for asynchronous delivery.
     
     The webhook payload will be:
-    1. Verified against the signature if provided
+    1. Verified against the signature (required)
     2. Checked against allowed event types for the subscription
     3. Queued for asynchronous delivery
     4. Delivery attempts will be made with configurable retries on failures
@@ -123,6 +131,11 @@ async def ingest_webhook(
     """
     try:
         signature = parse_signature_header(x_hub_signature_256)
+        if not signature:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": "Invalid signature format", "detail": "X-Hub-Signature-256 must be in format 'sha256=<hash>'"}
+            )
         
         # Convert payload to dict if it's one of our Pydantic models
         # Handle both Pydantic v1 (dict) and v2 (model_dump) methods

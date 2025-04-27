@@ -12,14 +12,17 @@ import requests
 
 def calculate_signature(payload, secret):
     """Calculate HMAC-SHA256 signature for a webhook payload."""
+    # Convert payload to a canonical JSON string
     payload_str = json.dumps(payload, sort_keys=True, separators=(',', ':'))
     
+    # Create the HMAC signature using SHA256
     signature = hmac.new(
         key=secret.encode('utf-8'),
         msg=payload_str.encode('utf-8'),
         digestmod=hashlib.sha256
     ).hexdigest()
     
+    # Return formatted signature
     return f"sha256={signature}"
 
 
@@ -65,6 +68,10 @@ def test_webhook_ingestion(base_url, subscription_id, secret_key):
     # Calculate the signature
     signature = calculate_signature(payload, secret_key)
     print(f"Calculated signature: {signature}")
+    
+    # Show the canonical payload string used for signing
+    canonical_payload = json.dumps(payload, sort_keys=True, separators=(',', ':'))
+    print(f"Canonical payload string used for signing: {canonical_payload}")
     
     try:
         # Send the webhook request with signature

@@ -4,6 +4,7 @@ Service for webhook-related business logic.
 import logging
 import uuid
 import traceback
+import json
 from typing import Any, Dict, Optional, Tuple
 from uuid import UUID
 
@@ -61,18 +62,34 @@ class WebhookService:
             if not subscription:
                 raise HTTPException(status_code=404, detail="Subscription not found")
             
-            # Check if signature is valid (if subscription has a secret)
-            if subscription.secret_key:
-                is_valid = verify_signature(
-                    payload=payload,
-                    secret=subscription.secret_key,
-                    signature=signature
+            # Check if signature is valid (signature verification is mandatory)
+            if not signature:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Missing signature header (X-Hub-Signature-256)"
                 )
-                if not is_valid:
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Invalid signature"
-                    )
+                
+            is_valid = verify_signature(
+                payload=payload,
+                secret=subscription.secret_key,
+                signature=signature
+            )
+            if not is_valid:
+                # Calculate canonical payload for logging
+                canonical_payload = json.dumps(payload, sort_keys=True, separators=(',', ':'))
+                
+                # Production-ready error response without exposing expected signature
+                raise HTTPException(
+                    status_code=401,
+                    detail={
+                        "error": "Invalid signature",
+                        "detail": "The provided signature does not match the expected signature",
+                        "debug_info": {
+                            "received": signature,
+                            "note": "Signatures are calculated using canonical JSON representation with sorted keys"
+                        }
+                    }
+                )
             
             # Check if event type is allowed
             if event_type and subscription.event_types:

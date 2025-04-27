@@ -179,9 +179,21 @@ async def test_webhook_delivery_retries(client, mock_webhook_server):
     
     # 3. Send a webhook
     webhook_payload = {"order_id": "67890", "status": "processing"}
+    
+    # Calculate valid signature
+    import hmac
+    import hashlib
+    payload_string = json.dumps(webhook_payload, sort_keys=True, separators=(',', ':'))
+    signature = hmac.new(
+        key=subscription_data["secret_key"].encode(),
+        msg=payload_string.encode(),
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    
     response = await client.post(
         f"/ingest/{subscription_id}?event_type=order.created",
-        json=webhook_payload
+        json=webhook_payload,
+        headers={"X-Hub-Signature-256": f"sha256={signature}"}
     )
     assert response.status_code == 202
     webhook_id = response.json()["webhook_id"]
@@ -228,9 +240,21 @@ async def test_event_type_filtering(client, mock_webhook_server):
     
     # 2. Send webhook with allowed event type
     webhook_payload = {"order_id": "12345", "status": "created"}
+    
+    # Calculate valid signature for first request
+    import hmac
+    import hashlib
+    payload_string = json.dumps(webhook_payload, sort_keys=True, separators=(',', ':'))
+    signature = hmac.new(
+        key=subscription_data["secret_key"].encode(),
+        msg=payload_string.encode(),
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    
     response = await client.post(
         f"/ingest/{subscription_id}?event_type=order.created",
-        json=webhook_payload
+        json=webhook_payload,
+        headers={"X-Hub-Signature-256": f"sha256={signature}"}
     )
     assert response.status_code == 202
     
@@ -244,9 +268,19 @@ async def test_event_type_filtering(client, mock_webhook_server):
     mock_webhook_server.received_webhooks = []  # Clear previous webhooks
     
     webhook_payload = {"order_id": "12345", "status": "shipped"}
+    
+    # Calculate valid signature for second request
+    payload_string = json.dumps(webhook_payload, sort_keys=True, separators=(',', ':'))
+    signature = hmac.new(
+        key=subscription_data["secret_key"].encode(),
+        msg=payload_string.encode(), 
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    
     response = await client.post(
         f"/ingest/{subscription_id}?event_type=order.shipped",
-        json=webhook_payload
+        json=webhook_payload,
+        headers={"X-Hub-Signature-256": f"sha256={signature}"}
     )
     
     # Should be rejected with 400 Bad Request
