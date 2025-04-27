@@ -304,7 +304,7 @@ For local development, the Docker setup provides several features:
 1. Clone the repository:
    ```bash
    git clone https://github.com/sanskarpan/Webhook.git
-   cd webhook-delivery-service
+   cd Webhook
    ```
 
 2. Create a `.env` file from the example:
