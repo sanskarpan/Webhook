@@ -3,6 +3,7 @@ Redis cache implementation for storing subscription details.
 """
 import json
 import logging
+import os
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import redis
@@ -18,16 +19,29 @@ logger = logging.getLogger(__name__)
 T = TypeVar('T', bound=BaseModel)
 
 # Initialize Redis connection
+REDIS_AVAILABLE = False
+redis_client = None
+
 try:
-    redis_client = redis.from_url(str(settings.REDIS_URL), decode_responses=True)
-    # Test connection
-    redis_client.ping()
-    REDIS_AVAILABLE = True
-    logger.info("Redis connection established successfully")
-except (RedisError, ConnectionError) as e:
+    # Get Redis URL from environment variable or settings
+    redis_url = os.environ.get("REDIS_URL", settings.REDIS_URL)
+    
+    # Log the Redis connection attempt (without exposing credentials)
+    parsed_url = redis_url.split('@')
+    masked_url = parsed_url[-1] if len(parsed_url) > 1 else redis_url
+    logger.info(f"Attempting to connect to Redis at: ...@{masked_url}")
+    
+    # Initialize connection
+    if redis_url:
+        redis_client = redis.from_url(redis_url, decode_responses=True)
+        # Test connection
+        redis_client.ping()
+        REDIS_AVAILABLE = True
+        logger.info("Redis connection established successfully")
+    else:
+        logger.warning("No Redis URL provided. Caching will be disabled.")
+except (RedisError, ConnectionError, AttributeError) as e:
     logger.warning(f"Redis connection failed: {str(e)}. Caching will be disabled.")
-    REDIS_AVAILABLE = False
-    redis_client = None
 
 
 class RedisCache:
@@ -68,7 +82,7 @@ class RedisCache:
         Returns:
             True if successful, False otherwise
         """
-        if not REDIS_AVAILABLE:
+        if not REDIS_AVAILABLE or not redis_client:
             return False
             
         try:
@@ -99,7 +113,7 @@ class RedisCache:
         Returns:
             String value or None if not found
         """
-        if not REDIS_AVAILABLE:
+        if not REDIS_AVAILABLE or not redis_client:
             return None
             
         try:
@@ -121,7 +135,7 @@ class RedisCache:
         Returns:
             Dictionary or None if not found/invalid
         """
-        if not REDIS_AVAILABLE:
+        if not REDIS_AVAILABLE or not redis_client:
             return None
             
         try:
@@ -149,7 +163,7 @@ class RedisCache:
         Returns:
             Instantiated model or None if not found/invalid
         """
-        if not REDIS_AVAILABLE:
+        if not REDIS_AVAILABLE or not redis_client:
             return None
             
         try:
@@ -176,7 +190,7 @@ class RedisCache:
         Returns:
             True if key was deleted, False otherwise
         """
-        if not REDIS_AVAILABLE:
+        if not REDIS_AVAILABLE or not redis_client:
             return False
             
         try:
@@ -198,7 +212,7 @@ class RedisCache:
         Returns:
             True if key exists, False otherwise
         """
-        if not REDIS_AVAILABLE:
+        if not REDIS_AVAILABLE or not redis_client:
             return False
             
         try:
