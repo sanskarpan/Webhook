@@ -106,15 +106,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Flower for monitoring Celery tasks (optional)
+  # Flower for monitoring Celery tasks 
   flower:
     build:
       context: .
       dockerfile: docker/Dockerfile
     environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-webhooks}
+      - SYNC_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-webhooks}
+      - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - CONTAINER_ROLE=flower
+      - FLOWER_UNAUTHENTICATED_API=true
+
     volumes:
       - ./logs:/app/logs
     ports:

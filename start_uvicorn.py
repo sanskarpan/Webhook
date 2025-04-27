@@ -8,13 +8,17 @@ import logging
 import uvicorn
 import argparse
 
+# Define the absolute base directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('uvicorn_starter')
 
 def main():
     # Create logs directory if it doesn't exist
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs(LOGS_DIR, exist_ok=True)
     
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Start Uvicorn server with configured logging')
@@ -43,7 +47,7 @@ def main():
             "file": {
                 "formatter": "default",
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": "logs/uvicorn.log",
+                "filename": os.path.join(LOGS_DIR, 'uvicorn.log'),
                 "maxBytes": 10485760,  # 10MB
                 "backupCount": 5,
             },

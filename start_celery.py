@@ -8,6 +8,10 @@ import logging
 import subprocess
 from logging.handlers import RotatingFileHandler
 
+# Define the absolute base directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+
 # Configure Celery environment
 os.environ.setdefault('CELERY_CONFIG_MODULE', 'app.workers.celery_app')
 
@@ -18,10 +22,10 @@ logger = logging.getLogger('celery_starter')
 def setup_logging():
     """Set up proper logging for Celery to output to a dedicated file."""
     # Create logs directory if it doesn't exist
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs(LOGS_DIR, exist_ok=True)
     
     # Configure rotating file handler for Celery logs
-    log_file = 'logs/celery.log'
+    log_file = os.path.join(LOGS_DIR, 'celery.log')
     
     # Configure the root logger to write to the file
     logger.info(f"Configuring Celery logging to: {log_file}")

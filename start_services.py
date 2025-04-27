@@ -11,13 +11,20 @@ import time
 import signal
 import argparse
 
+# Define the absolute base directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+
+# Create logs directory if it doesn't exist
+os.makedirs(LOGS_DIR, exist_ok=True)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('logs/services.log')
+        logging.FileHandler(os.path.join(LOGS_DIR, 'services.log'))
     ]
 )
 logger = logging.getLogger('service_starter')
@@ -47,9 +54,6 @@ def signal_handler(sig, frame):
 
 def start_uvicorn(host, port, reload):
     """Start the Uvicorn server process."""
-    # Create logs directory if it doesn't exist
-    os.makedirs('logs', exist_ok=True)
-    
     cmd = [
         sys.executable, 'start_uvicorn.py',
         '--host', host,
@@ -66,9 +70,6 @@ def start_uvicorn(host, port, reload):
 
 def start_celery():
     """Start the Celery worker process."""
-    # Create logs directory if it doesn't exist
-    os.makedirs('logs', exist_ok=True)
-    
     cmd = [sys.executable, 'start_celery.py']
     
     logger.info(f"Starting Celery worker: {' '.join(cmd)}")
@@ -78,9 +79,6 @@ def start_celery():
 
 def main():
     """Main function to parse arguments and start services."""
-    # Create logs directory if it doesn't exist
-    os.makedirs('logs', exist_ok=True)
-    
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Start Webhook Delivery Service')
     parser.add_argument('--host', default='0.0.0.0', help='Host to bind to')
