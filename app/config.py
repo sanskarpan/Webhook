@@ -47,7 +47,7 @@ class Settings(BaseModel):
 
     # Database
     DATABASE_URL: Optional[str] = fix_database_url(os.getenv("DATABASE_URL", None))
-    SYNC_DATABASE_URL: Optional[str] = fix_database_url(os.getenv("SYNC_DATABASE_URL", os.getenv("DATABASE_URL", None)))
+    SYNC_DATABASE_URL: Optional[str] = os.getenv("SYNC_DATABASE_URL", os.getenv("DATABASE_URL", None))
 
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", os.getenv("REDISHOST", "redis://localhost:6379/0"))
