@@ -18,16 +18,26 @@ LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 # Create logs directory if it doesn't exist
 os.makedirs(LOGS_DIR, exist_ok=True)
 
+# Set up console handler first for immediate output
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(os.path.join(LOGS_DIR, 'services.log'))
-    ]
-)
 logger = logging.getLogger('service_starter')
+logger.setLevel(logging.INFO)
+logger.addHandler(console_handler)
+
+# Try to add file handler, but don't fail if there's an issue
+try:
+    file_handler = logging.FileHandler(os.path.join(LOGS_DIR, 'services.log'))
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+except Exception as e:
+    logger.warning(f"Could not set up file logging: {e}")
+
+logger.info("Service starter initialized")
 
 # Track child processes
 processes = []
@@ -36,7 +46,7 @@ def signal_handler(sig, frame):
     """Handle termination signals to gracefully shut down all processes."""
     logger.info("Shutting down all services...")
     for p in processes:
-        if p.poll() is None:  # If process is still running
+        if p and p.poll() is None:  # If process is still running
             logger.info(f"Terminating process with PID {p.pid}")
             p.terminate()
     
@@ -45,7 +55,7 @@ def signal_handler(sig, frame):
     
     # Force kill any remaining processes
     for p in processes:
-        if p.poll() is None:
+        if p and p.poll() is None:
             logger.info(f"Force killing process with PID {p.pid}")
             p.kill()
     
@@ -54,16 +64,22 @@ def signal_handler(sig, frame):
 
 def start_uvicorn(host, port, reload):
     """Start the Uvicorn server process."""
+    logger.info(f"Starting Uvicorn on {host}:{port}")
+    
+    # Directly start uvicorn for better output in Railway
     cmd = [
-        sys.executable, 'start_uvicorn.py',
-        '--host', host,
-        '--port', str(port)
+        sys.executable, "-m", "uvicorn", 
+        "app.main:app", 
+        "--host", host,
+        "--port", str(port)
     ]
     
     if reload:
-        cmd.append('--reload')
+        cmd.append("--reload")
     
-    logger.info(f"Starting Uvicorn server: {' '.join(cmd)}")
+    logger.info(f"Running command: {' '.join(cmd)}")
+    
+    # In Railway, we want the output to go to stdout/stderr
     process = subprocess.Popen(cmd)
     logger.info(f"Uvicorn server started with PID: {process.pid}")
     return process
@@ -82,11 +98,13 @@ def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Start Webhook Delivery Service')
     parser.add_argument('--host', default='0.0.0.0', help='Host to bind to')
-    parser.add_argument('--port', type=int, default=8000, help='Port to bind to')
+    parser.add_argument('--port', type=int, default=int(os.environ.get('PORT', 8000)), help='Port to bind to')
     parser.add_argument('--reload', action='store_true', help='Enable auto-reload for Uvicorn')
     parser.add_argument('--uvicorn-only', action='store_true', help='Start only the Uvicorn server')
     parser.add_argument('--celery-only', action='store_true', help='Start only the Celery worker')
     args = parser.parse_args()
+    
+    logger.info(f"Starting services with args: {args}")
     
     # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
@@ -106,12 +124,12 @@ def main():
         logger.info("All services started successfully")
         
         # Keep the script running to maintain the child processes
-        while all(p.poll() is None for p in processes):
+        while all(p and p.poll() is None for p in processes):
             time.sleep(1)
         
         # Check if any process exited unexpectedly
         for p in processes:
-            if p.poll() is not None:
+            if p and p.poll() is not None:
                 logger.error(f"Process with PID {p.pid} exited with code {p.returncode}")
         
         # Terminate any remaining processes

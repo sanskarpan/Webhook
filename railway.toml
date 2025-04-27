@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "pip install -r requirements.txt"
 
 [deploy]
-startCommand = "python start_services.py"
+startCommand = "bash -c 'echo \"Starting service\"; mkdir -p logs; python -m start_services --uvicorn-only --port ${PORT:-8000}'"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
@@ -11,4 +11,4 @@ restartPolicyMaxRetries = 5
 
 [environments]
   [environments.production]
-    envs = [] 
+    port = 8000 
